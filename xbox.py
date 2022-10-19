@@ -1,6 +1,6 @@
-import sys
-from turtle import update
-from unicodedata import name
+from msilib.schema import ControlCondition
+from operator import itemgetter
+import time
 import pygame
 import pygame_gui
 from onvif import ONVIFCamera
@@ -21,7 +21,10 @@ axis_right_tilt = 0.000
 
 ptz = [0.000, 0.000, 0.000]
 active_cam = None
-cam = None
+cam1 = None
+cam2 = None
+cam3 = None
+cam4 = None
 
 is_running = True
 controller = None
@@ -135,8 +138,6 @@ class PtzControl(object):
         self.ptz.GotoPreset(self.requestg)
 
 
-cam = PtzControl(IP, PORT, USER, PASS)
-active_cam = cam
 pygame.init()
 pygame.font.init()
 
@@ -150,30 +151,29 @@ manager = pygame_gui.UIManager((400,500))
 
 clock = pygame.time.Clock()
 
+def set_active_cam(dpad, controller):
+    global active_cam, cam1, cam2, cam3, cam4
+    if(dpad[1] == 1):
+        print("cam1 active")
+        cam1 = PtzControl('192.168.1.118',8000,'admin','admin')
+        active_cam = cam1
+        controller.rumble(0,0.5,500)
+    if(dpad[0] == 1):
+        print("cam2 active")
+        active_cam = cam2
+        controller.rumble(0,0.5,500)
+    if(dpad[1] == -1):
+        print("cam3 active")
+        active_cam = cam3
+        controller.rumble(0,0.5,500)
+    if(dpad[0] == -1):
+        print("cam4 active")
+        active_cam = cam4
+        controller.rumble(0,0.5,500)
 def create_font(t,size=15,color=(255,255,255), bold=False,italic=False):
     font = pygame.font.SysFont("Arial", size, bold=bold, italic=italic)
     text = font.render(t, True, color)
     return text
-
-def joystick_handler(axis, name):
-    if (axis < -0.6 and axis >= -1.0):
-        print(name, "AXIS FAST: ", axis)
-    if (axis < -0.4 and axis >= -0.6):
-        print(name, "AXIS MEDIUM: ", axis)
-    if (axis > -0.4 and axis <= 0.4):
-        print(name, "AXIS SLOW: ", axis)
-    if (axis > 0.4 and axis <= 0.6):
-        print(name, "AXIS MEDIUM: ", axis)
-    if (axis > 0.6 and axis < 1):
-        print(name, "AXIS FAST: ", axis)
-
-def trigger_handler(axis, name):
-    if (axis >-1 and axis <=-0.6):
-        print(name, "TRIGGER SLOW: ", axis)
-    if (axis >-0.6 and axis <=0.6):
-        print(name, "TRIGGER MEDIUM: ", axis)
-    if (axis >0.6 and axis <=0.1):
-        print(name, "TRIGGER FAST: ", axis)
 
 def call_continuous_movement():
     global stop_called, axis_left_tilt, axis_left_pan,axis_right_tilt, flip
@@ -257,6 +257,8 @@ def controller_handler(controller):
     if controller.get_button(8):
         print("LT Pressed")
         call_home()
+    if controller.get_button(10):
+        print("D Pad")
 
 def check_for_controller():
     print("checking for controller")
@@ -277,6 +279,10 @@ def show_selected_camera():
     surface.blit(selected, (10,70))
 
 controller = check_for_controller()
+power = controller.get_power_level
+# print(power)
+# time.sleep(3)
+controller.rumble(0.5,1,0)
 
 def display_controller_info():
     name = create_font("Connected: " + controller.get_name())
@@ -291,21 +297,16 @@ title = create_font('XBox PTZ Mapping Controller (TWEC)',20, bold=True)
 while is_running == True:
     time_delta = clock.tick(60)/1000.0
     for event in pygame.event.get():
+        if event.type == pygame.JOYHATMOTION:
+            set_active_cam(event.value, controller)
         if event.type == pygame.QUIT:
             is_running = False
-
-        # if event.type == pygame_gui.UI_BUTTON_PRESSED:
-        #     if event.ui_element == hello_button:
-        #         check_for_controller()
-
-        if event.type == pygame.joystick:
-            print('here')
 
         manager.process_events(event)
 
     manager.update(time_delta)
 
-    if(controller != None):
+    if(controller != None and active_cam != None):
         controller_handler(controller)
 
     surface.blit(background, (0,0))
