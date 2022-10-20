@@ -1,14 +1,11 @@
-from msilib.schema import ControlCondition
-from operator import itemgetter
-import time
-import pygame
-import pygame_gui
+import json
 from onvif import ONVIFCamera
+import sys, os
+sys.stdout = open(os.devnull, 'w')
+import pygame
+sys.stdout = sys.__stdout__
 
-IP = '192.168.1.118'
-PORT = 8000
-USER = 'admin'
-PASS = 'admin'
+DEV = True
 
 dead_zone = 0.09
 last_button_pressed = "None"
@@ -19,7 +16,6 @@ axis_left_tilt = 0.000
 axis_right_pan = 0.000
 axis_right_tilt = 0.000
 
-ptz = [0.000, 0.000, 0.000]
 active_cam = None
 cam1 = None
 cam2 = None
@@ -31,11 +27,12 @@ controller = None
 
 stop_called = True
 home_called = False
+basedir = os.path.dirname(sys.executable) if not DEV else './'
 
 class PtzControl(object):
     def __init__(self, ip,  port, user, password):
         super(PtzControl, self,).__init__()
-        self.mycam = ONVIFCamera(ip, port, user, password, wsdl_dir='wsdl')
+        self.mycam = ONVIFCamera(ip, port, user, password, wsdl_dir=os.path.join(basedir, 'wsdl'))
         # create media service object
         self.media = self.mycam.create_media_service()
         # Get target profile
@@ -137,25 +134,34 @@ class PtzControl(object):
         self.requestg.PresetToken = '1'
         self.ptz.GotoPreset(self.requestg)
 
-
 pygame.init()
-pygame.font.init()
 
-pygame.display.set_caption('XBOX PTZ Controller')
-surface = pygame.display.set_mode((400,500)) 
+def create_camera(camera):
+    cam = None
+    try:
+        cam = PtzControl(camera['ip'], camera['port'], camera['user'], camera['password'])
+        return cam
+    except:
+        print("could not load ", camera['name'])
+        return cam
 
-background = pygame.Surface((400,500))
-background.fill(pygame.Color('#000000'))
-
-manager = pygame_gui.UIManager((400,500))
-
-clock = pygame.time.Clock()
+def load_cameras():
+    global cam1, cam2
+    path = os.path.join(basedir, 'cameras.json')
+    if os.path.exists(path):
+        print('Loading cameras. Please wait for complete message...')
+        f = open(path)
+        cameras = json.load(f)
+        cam1 = create_camera(cameras['cam1'])
+        cam2 = create_camera(cameras['cam2'])
+        print('Camera load completed!')
+    else:
+        print('cameras.json file missing. Create a cameras.json file in this directory and restart')
 
 def set_active_cam(dpad, controller):
     global active_cam, cam1, cam2, cam3, cam4
     if(dpad[1] == 1):
         print("cam1 active")
-        cam1 = PtzControl('192.168.1.118',8000,'admin','admin')
         active_cam = cam1
         controller.rumble(0,0.5,500)
     if(dpad[0] == 1):
@@ -170,10 +176,6 @@ def set_active_cam(dpad, controller):
         print("cam4 active")
         active_cam = cam4
         controller.rumble(0,0.5,500)
-def create_font(t,size=15,color=(255,255,255), bold=False,italic=False):
-    font = pygame.font.SysFont("Arial", size, bold=bold, italic=italic)
-    text = font.render(t, True, color)
-    return text
 
 def call_continuous_movement():
     global stop_called, axis_left_tilt, axis_left_pan,axis_right_tilt, flip
@@ -274,47 +276,24 @@ def check_for_controller():
         print("no joystick connected")
         None
 
-def show_selected_camera():
-    selected = create_font("Selected Camera: " + last_button_pressed)
-    surface.blit(selected, (10,70))
-
 controller = check_for_controller()
-power = controller.get_power_level
-# print(power)
-# time.sleep(3)
-controller.rumble(0.5,1,0)
+if controller != None:
+    power = controller.get_power_level
+    controller.rumble(0.5,1,0)
 
-def display_controller_info():
-    name = create_font("Connected: " + controller.get_name())
-    number_axes = create_font("No. Axes: " + str(controller.get_numaxes()))
-    surface.blit(name, (10,30))
-    surface.blit(number_axes, (10,50))
 
-title = create_font('XBox PTZ Mapping Controller (TWEC)',20, bold=True)
+load_cameras()
+try:
+    while is_running == True:
+        for event in pygame.event.get():
+            if event.type == pygame.JOYHATMOTION:
+                set_active_cam(event.value, controller)
+            if event.type == pygame.QUIT:
+                is_running = False
 
-# controller = pygame.joystick.Joystick(0)
-
-while is_running == True:
-    time_delta = clock.tick(60)/1000.0
-    for event in pygame.event.get():
-        if event.type == pygame.JOYHATMOTION:
-            set_active_cam(event.value, controller)
-        if event.type == pygame.QUIT:
-            is_running = False
-
-        manager.process_events(event)
-
-    manager.update(time_delta)
-
-    if(controller != None and active_cam != None):
-        controller_handler(controller)
-
-    # surface.blit(background, (0,0))
-    # surface.blit(title,(10,10))
-    # show_selected_camera()
-    # display_controller_info()
-    # manager.draw_ui(surface)
-
-    # pygame.display.update()
-
-            
+        if(controller != None and active_cam != None):
+            controller_handler(controller)
+        # if(controller == None):
+        #     controller = check_for_controller()
+except:
+    print("Error")
