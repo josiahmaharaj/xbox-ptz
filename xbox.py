@@ -217,7 +217,7 @@ def controller_handler(controller):
         # if( axis_left_x <= dead_zone and axis_left_x >= -dead_zone and axis_left_y <= dead_zone and axis_left_y >= -dead_zone and axis_right_y <= dead_zone and axis_right_y >= -dead_zone ):
         if(axis_left_pan == 0.0 and axis_right_pan == 0.0 and axis_right_tilt == 0.0):
             call_stop()
-        print(str(axis_left_pan) + ', ' + str(axis_left_tilt) + ', ' + str(axis_right_tilt))
+        # print(str(axis_left_pan) + ', ' + str(axis_left_tilt) + ', ' + str(axis_right_tilt))
         call_continuous_movement()
 
     # axis_right_x = round(controller.get_axis(3),3)
@@ -309,12 +309,12 @@ while is_running == True:
     if(controller != None and active_cam != None):
         controller_handler(controller)
 
-    surface.blit(background, (0,0))
-    surface.blit(title,(10,10))
-    show_selected_camera()
-    display_controller_info()
-    manager.draw_ui(surface)
+    # surface.blit(background, (0,0))
+    # surface.blit(title,(10,10))
+    # show_selected_camera()
+    # display_controller_info()
+    # manager.draw_ui(surface)
 
-    pygame.display.update()
+    # pygame.display.update()
 
             
