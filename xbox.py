@@ -263,7 +263,7 @@ def button_selection(button):
         case _:
             pass
 
-def dpad_actions(dpad, controller):
+def dpad_actions(dpad):
     print(dpad)
     if(dpad[1] == 1):
         pass
@@ -316,7 +316,7 @@ try:
     while is_running == True:
         for event in pygame.event.get():
             if event.type == pygame.JOYHATMOTION:
-                dpad_actions(event.value, controller)
+                dpad_actions(event.value)
             if event.type == pygame.QUIT:
                 is_running = False
             if event.type == pygame.JOYBUTTONUP:
