@@ -3,7 +3,7 @@ from asyncio import TimerHandle
 import json
 from time import sleep
 from turtle import home
-from onvif import ONVIFCamera
+from onvif import ONVIFCamera, ONVIFError
 import sys, os
 sys.stdout = open(os.devnull, 'w')
 import pygame
@@ -13,7 +13,7 @@ DEV = True
 
 dead_zone = 0.09
 last_button_pressed = "None"
-flip = False
+flip = True
 slow = False
 
 axis_left_pan = 0.000
@@ -58,8 +58,11 @@ class PtzControl(object):
         Service_Capabilities = self.ptz.GetServiceCapabilities(request)
 
         # IMG controls  -------------------------------------------------------------
+        self.videoSourceToken = self.media.GetVideoSources()[0].token
         self.img = self.mycam.create_imaging_service()
-        print(self.img.Capabilities())
+
+        self.focusReq = self.img.create_type('Move')
+        self.focusReq.VideoSourceToken = self.videoSourceToken
 
         # Get PTZ status
         status = self.ptz.GetStatus({'ProfileToken': token})
@@ -94,6 +97,21 @@ class PtzControl(object):
         # self.requestf.ProfileToken = self.media_profile.token
 
         self.stop()
+
+    def auto_focus(self):
+        imgSettingsReq = self.img.create_type('GetImagingSettings')
+        imgSettingsReq.VideoSourceToken = self.videoSourceToken
+
+        autoFocusReq = self.img.create_type('SetImagingSettings')
+        autoFocusReq.VideoSourceToken = self.videoSourceToken
+        autoFocusReq.ImagingSettings = self.img.GetImagingSettings(imgSettingsReq)
+        autoFocusReq.ImagingSettings.Focus.AutoFocusMode = 'AUTO'
+        self.img.SetImagingSettings(autoFocusReq)
+
+    
+    def focus(self, speed):
+        self.focusReq.Focus = {"Continuous": {"Speed": speed}}
+        self.img.Move(self.focusReq)
 
     # Stop pan, tilt and zoom
     def stop(self):
@@ -211,6 +229,13 @@ def call_slow():
     global slow
     slow = not slow
 
+def call_auto_focus():
+    active_cam.auto_focus()
+
+def call_focus(speed):
+    active_cam.focus(speed)
+    active_cam.stop()
+
 ### HANDLERS
 def controller_handler(controller):
     global last_button_pressed, axis_left_pan, axis_left_tilt, axis_right_pan, axis_right_tilt, stop_called
@@ -238,7 +263,7 @@ def controller_handler(controller):
         call_continuous_movement()
 
 def button_selection(button):
-    global is_running
+    global is_running, home_called
     match button:
         case 0: #A
             call_flip()
@@ -257,22 +282,24 @@ def button_selection(button):
         case 7: #Start
             is_running = True
         case 8: #LS
+            home_called = True
             call_home()
         case 9: #RS
-            pass
+            call_auto_focus()
         case _:
             pass
 
 def dpad_actions(dpad):
-    print(dpad)
     if(dpad[1] == 1):
         pass
     if(dpad[0] == 1):
-        pass
+        call_focus(0.01)
     if(dpad[1] == -1):
         pass
     if(dpad[0] == -1):
-        pass
+        call_focus(-0.01)
+    if((dpad[0] == 0) and (dpad[1] == 0)):
+        call_stop()
 
 def check_for_controller():
     print("checking for controller")
@@ -327,5 +354,5 @@ try:
 
         if(controller != None and active_cam != None):
             controller_handler(controller)
-except:
-    print("Error")
+except ONVIFError as e:
+    print(e)
