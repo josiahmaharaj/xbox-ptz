@@ -170,7 +170,7 @@ def load_cameras():
         f = open(path)
         cameras = json.load(f)
         cam1 = create_camera(cameras['cam1'])
-        # cam2 = create_camera(cameras['cam2'])
+        cam2 = create_camera(cameras['cam2'])
         print('Camera load completed!')
         print("")
         print("")
