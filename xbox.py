@@ -202,7 +202,7 @@ def call_continuous_movement():
     stop_called = False
     pan = (axis_left_pan * -1) if flip else (axis_left_pan * 1)
     tilt = (axis_left_tilt * 1) if flip else (axis_left_tilt * -1)
-    zoom = (axis_right_tilt * 1) if flip else (axis_right_tilt * -1)
+    zoom = axis_right_tilt
 
     pan = pan/2 if slow else pan
     tilt = tilt/2 if slow else tilt
